@@ -1,5 +1,5 @@
-# SANTIAGO VALLE VILLAMAYOR - MAPEADO DE LA RUTA EN FUNCION DE LA DISTANCIA ENTRE OBJETIVOS-ORIGEN CON LOS DATOS EXCEL
-#DATOS: NOMBRE Y DIRECCION DEL VENDEDOR/ORIGEN  - NOMBRE Y DIRECCION DE LOS CLIENTES/OBJETIVOS
+# SANTIAGO VALLE VILLAMAYOR - MAPEADO DE LA RUTA EN FUNCION DE LA Distance ENTRE OBJETIVOS-ORIGEN CON LOS DATOS EXCEL
+#DATA: NAME AND ADDRESS OF SELLER/ORIGIN  - NAME AND ADDRESS OF THE CUSTOMERS/GOALS
 #from pydoc import plainpager
 import openrouteservice as ors
 from geopy.geocoders import Nominatim
@@ -20,38 +20,54 @@ import math
 API_KEY = '5b3ce3597851110001cf6248f86bbcc9adbd4557bc439f638fda8f45'
 client = ors.Client(key=API_KEY)
 
-#Leo el excel
-df = pd.read_excel('C:/DatosRuta.xlsx')
+print("IMPORTANT: THE EXCEL TABLE MUST HAVE THE FOLLOWING COLUMNS WITH THE SAME NUMBER OF ROWS AS CUSTOMERS THERE ARE")
+print('\t-SELLER NAME\n\t-SELLER LOCATION\n\t-NAME\n\t-LOCATION\n\t-STATUS\n\t-LATITUDE\n\t-LONGITUDE')
+print('NOTE 1: The first two columns are for entering the seller\'s data in the first row, the rest is for the consumers\' data')
+print('NOTE 2: The columns LATITUDE and LONGITUDE must be empty. It will be calculated from location')
+print('NOTE 3: The column STATUS also must be empty. It will be written with 1 when coordinates are calculated')
+
+print("\nType the directory with the excel table (IMPORTANT: Put / at the end)")
+print('Example: D:\\User\\Desktop\\')
+directory = input()
+directory = directory.replace("\\", "/") #Replace the \ symbol to / which i use in code
+print()
+
+print("Type the name of excel file without extension (IMPORTANT: File must be Excel extension like xlsx)")
+excelname = input()
+print()
+
+# Read excel
+df = pd.read_excel(directory+excelname+'.xlsx')
 #display(df)
 
-#origen seleccionable
-nombreorigen = df['NOMBRE VENDEDOR'].values
-ubiorigen = df['UBICACION VENDEDOR'].values
+# Get origin
+nombreorigen = df['SELLER NAME'].values
+ubiorigen = df['SELLER LOCATION'].values
 origen = gc.arcgis(ubiorigen[0]).latlng
 
 
-#obtengo las coordenadas de las ubicaciones que no tengan coordenadas ya
-lats = df['LATITUD'].values
-lons = df['LONGITUD'].values
+# Getting the coordinates of locations that don't have coordinates yet
+lats = df['LATITUDE'].values
+lons = df['LONGITUDE'].values
 status = df['STATUS'].values
 
 for i,row in df.iterrows():
     lat,lon = None, None
     if row['STATUS'] != 1:
-        g = gc.arcgis(row['UBICACION'])
+        g = gc.arcgis(row['LOCATION'])
         lat, lon = g.latlng
         lats[i] = lat
         lons[i] = lon
         status[i] = 1
         
 
-#sobreescribo el excel con los nuevos datos
-df.to_excel('D:/User/Desktop/Python Projects/DaddyRoutes/DaddyRoutes/DatosRuta.xlsx')
+# Overwrite the excel with the new data
+df.to_excel(directory+excelname+'.xlsx')
 
-#Mapeado de las direcciones (iconos --https://getbootstrap.com/docs/3.3/components/    colores--'red', 'blue', 'green', 'purple', 'orange', 'darkred', 'lightred', 'beige', 'darkblue', 'darkgreen', 'cadetblue', 'darkpurple', 'white', 'pink', 'lightblue', 'lightgreen', 'gray', 'black', 'lightgray') 
+# Address mapping (iconos --https://getbootstrap.com/docs/3.3/components/    colors--'red', 'blue', 'green', 'purple', 'orange', 'darkred', 'lightred', 'beige', 'darkblue', 'darkgreen', 'cadetblue', 'darkpurple', 'white', 'pink', 'lightblue', 'lightgreen', 'gray', 'black', 'lightgray') 
 m = folium.Map(location = origen)
 
-#Represento origen
+# Plot origin
 iconoog = 'glyphicon glyphicon-home'
 icono1 = folium.Icon(color='lightred', icon=iconoog)
 folium.Marker(
@@ -61,8 +77,7 @@ folium.Marker(
     icon=icono1).add_to(m)
 
 
-
-#Calculo de las direcciones
+# Calculate address
 """ Optencion de la mejor ruta por fuerza bruta
 #numero de rutas posibles a traves del factorial del numero de clientes
 print('Numero de rutas posbiles:',math.factorial(len(lats)))
@@ -70,10 +85,10 @@ print('Numero de rutas posbiles:',math.factorial(len(lats)))
 #funcion para calcular la duracion entre puntos de la ruta
 def duracion(origen, destino):
     for i, row in df.iterrows():
-        if row['LATITUD']==origen:
-            origenlon = row['LONGITUD']
-        if row['LATITUD']==destino:
-            destinolon = row['LONGITUD']
+        if row['LATITUDE']==origen:
+            origenlon = row['LONGITUDE']
+        if row['LATITUDE']==destino:
+            destinolon = row['LONGITUDE']
     coords = ((round(origenlon, 6),round(origen, 6)),(round(destinolon, 6),round(destino, 6)))
     route = client.directions(coords, profile='driving-car', format='geojson')
     dur = route['features'][0]['properties']['segments'][0]['duration']
@@ -86,8 +101,8 @@ def calcular_duracion_ruta(ruta):
         duracion_total += duracion(ruta[i], ruta[i+1])
     #calculo duracion inicial
     for i, row in df.iterrows():
-        if row['LATITUD']==ruta[0]:
-            loninicial = row['LONGITUD']
+        if row['LATITUDE']==ruta[0]:
+            loninicial = row['LONGITUDE']
     coords = ((round(origen[1], 6),round(origen[0], 6)),(round(loninicial, 6),round(ruta[0], 6)))
     route = client.directions(coords, profile='driving-car', format='geojson')
     duracion_inicial = route['features'][0]['properties']['segments'][0]['duration']
@@ -112,8 +127,8 @@ for i in range(len(duracionrutas)):
 for i in range(len(rutas_posibles[i])):
     if i == 0: #Origen - primer destino
         for i, row in df.iterrows():
-            if row['LATITUD']==ruta[i]:
-                rutalon = row['LONGITUD']
+            if row['LATITUDE']==ruta[i]:
+                rutalon = row['LONGITUDE']
         coords = ((round(origen[1], 6),round(origen[0], 6)),(round(rutalon, 6),round(ruta[i], 6)))
         route = client.directions(coords, profile='driving-car', format='geojson')
         waypoints = list(dict.fromkeys(reduce(operator.concat, list(map(lambda step: step['way_points'], route['features'][0]['properties']['segments'][0]['steps'])))))
@@ -124,8 +139,8 @@ for i in range(len(rutas_posibles[i])):
         newog.append(rutalon)
     else: #Resto de la ruta
         for i, row in df.iterrows():
-            if row['LATITUD']==ruta[i]:
-                rutalon = row['LONGITUD']
+            if row['LATITUDE']==ruta[i]:
+                rutalon = row['LONGITUDE']
         coords = ((round(newog[1], 6),round(newog[0], 6)),(round(rutalon, 6),round(ruta[i], 6)))
         route = client.directions(coords, profile='driving-car', format='geojson')
         waypoints = list(dict.fromkeys(reduce(operator.concat, list(map(lambda step: step['way_points'], route['features'][0]['properties']['segments'][0]['steps'])))))
@@ -137,8 +152,8 @@ for i in range(len(rutas_posibles[i])):
 """
 
 
-# Optencion de la pseudomejor ruta por iteraciones en base a la distancia origen-siguiente destino
-#calculo del origen a cada punto su distancia
+# Obtaining the pseudo best route by iterations based on the origin-next_destination distance
+# Calculate the distance from the origin to each point
 dur = []
 lon = []
 lat = []
@@ -157,8 +172,8 @@ for i in range(len(lats)):
 
 j = 0
 
-#Obtencion de la ruta ordenada en la lista ordenlat / ordenlon
-#obteniendo el menor valor de duracion y elimino ese punto para volver a iterar sin el, siendo este punto el nuevo origen
+#Getting the sorted path in the list "ordenlat/ordenlon"
+# Obtaining the smallest value of duration and removing that point to iterate again without it, being this point the new origin
 while len(lat)>0:
     mindur = dur[0]
     minlat = lat[0]
@@ -170,7 +185,7 @@ while len(lat)>0:
                 minlat = lat[i]
                 minlon = lon[i]
 
-    #dibujo en el mapa
+    # Plot the map
     if j == 0:
         coords = ((round(origen[1], 6),round(origen[0], 6)),(round(minlon, 6),round(minlat, 6)))
         route = client.directions(coords, profile='driving-car', format='geojson')
@@ -182,18 +197,18 @@ while len(lat)>0:
         waypoints = list(dict.fromkeys(reduce(operator.concat, list(map(lambda step: step['way_points'], route['features'][0]['properties']['segments'][0]['steps'])))))
         folium.PolyLine(locations=[list(reversed(coord)) for coord in route['features'][0]['geometry']['coordinates']], color='red').add_to(m)   
 
-    #Guardo la duracion del trayecto
+    # Saving the duration of the journey
     rutadur.append(route['features'][0]['properties']['segments'][0]['duration'])          
     rutadis.append(route['features'][0]['properties']['segments'][0]['distance'])
 
-    #origen siendo el ultimo destino            
+    # Origin being the last destination        
     newog = []
     newog.append(minlat)
     newog.append(minlon)
-    #metemos en la lista de la ruta ordenada el destino
+    # Appending the destination in the list of the ordered route
     ordenlat.append(minlat)
     ordenlon.append(minlon)
-    #eliminamos de la lista completa de coordenadas el destino ya utilizado
+    # Remove from the complete list of coordinates the destination already used
     lat.remove(minlat)
     lon.remove(minlon)
 
@@ -239,48 +254,28 @@ for i in range(len(rutadur)):
     disacumula[i] = acumulacion2+disacumula[i]
     acumulacion2 = disacumula[i]
 
-#Escribo por consola la lista ordenada de los clientes con su nombre y ubicacion
+# Typing on console the ordered list of clients with their name and location
 icono = 'glyphicon glyphicon-user'
 
-print("LISTADO DE CLIENTES ORDENADOS SEGUN LA RUTA:")
+print("LIST OF CUSTOMERS ORDERED ACCORDING TO THE ROUTE:")
 for k in range(len(ordenlat)):
     for i, row in df.iterrows():
-        if row['LATITUD']==ordenlat[k]:
+        if row['LATITUDE']==ordenlat[k]:
             if(k == 0):
-                print('Cliente', k+1, '\n\t Nombre:', row['NOMBRE'], ' Ubicacion:', row['UBICACION'], '\n\t Tiempo:', round(rutadur[k],2), 'minutos',' Distancia:', round((disacumula[k]/1000),2),'Km', '\n\t Distancia desde el punto de salida:', round((rutadis[k]/1000),2),'Km')
+                print('Customer', k+1, '\n\t Name:', row['NAME'], ' Location:', row['LOCATION'], '\n\t Duration:', round(rutadur[k],2), 'minutos',' Distance:', round((disacumula[k]/1000),2),'Km', '\n\t Distance from the starting point:', round((rutadis[k]/1000),2),'Km')
             else:
-                print('Cliente', k+1, '\n\t Nombre:', row['NOMBRE'], ' Ubicacion:', row['UBICACION'], '\n\t Tiempo:', round(rutadur[k],2), 'minutos', ' Distancia:', round((disacumula[k]/1000),2),'Km', '\n\t Distancia desde anterior cliente:', round((rutadis[k]/1000),2),'Km')
+                print('Customer', k+1, '\n\t Name:', row['NAME'], ' Location:', row['LOCATION'], '\n\t Duration:', round(rutadur[k],2), 'minutos', ' Distance:', round((disacumula[k]/1000),2),'Km', '\n\t Distance from the starting point:', round((rutadis[k]/1000),2),'Km')
             
             icono2 = folium.Icon(color='lightblue', icon=icono)
             folium.Marker(
-            location=[row['LATITUD'],row['LONGITUD']],
-            popup=row['UBICACION']+' Tiempo:'+str(round(rutadur[k],2))+ 'min' + ' Distancia:'+str(round((disacumula[k]/1000),2))+'Km',
-            tooltip=row['NOMBRE'],
+            location=[row['LATITUDE'],row['LONGITUDE']],
+            popup=row['LOCATION']+' Duration:'+str(round(rutadur[k],2))+ 'min' + ' Distance:'+str(round((disacumula[k]/1000),2))+'Km',
+            tooltip=row['NAME'],
             icon=icono2).add_to(m)
 
-print('\n Duracion total:',  round((durtotal/60),2), 'min', ' Distancia total:',  round((distotal/1000),2),'Km')
-""" Obtener direccion a partir de las coordenadas
-for i in range(len(ordenlat)):
-    geolocator = Nominatim(user_agent="coordinateconverter")
-    coords = str(ordenlat[i]) + "," + str(ordenlon[i])
-    ubicacion = geolocator.reverse(coords)
-    print(ubicacion.address)
-"""
-"""
-#Represento clientes
-icono = 'glyphicon glyphicon-user'
+print('\n Total duracion:',  round((durtotal/60),2), 'min', ' Total distance:',  round((distotal/1000),2),'Km')
 
-for i, row in df.iterrows():
-    if row['STATUS']==1:
-        icono2 = folium.Icon(color='lightblue', icon=icono)
-        folium.Marker(
-            location=[row['LATITUD'],row['LONGITUD']],
-            popup=row['UBICACION'],
-            tooltip=row['NOMBRE'],
-            icon=icono2).add_to(m)
-"""
-
-#Guardo el mapa en una web y lo abro
+# Show the map with html and open it
 m.save("map.html")
 webbrowser.open("map.html")   
     
